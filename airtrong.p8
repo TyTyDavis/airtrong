@@ -28,7 +28,9 @@ spawn_gap=3
 grace_period=6*30
 seconds=0
 score=0
-speed=0.4
+bspeed=0.35
+ispeed=0.375
+respawn=90
 
 function _init()
 	set_palette()
@@ -51,6 +53,13 @@ function _update()
             if c.balled==false then
                 spawn_ball(c)
             end
+			if c.irespawn<respawn and c.irespawn!=0 and c.icount<2 then
+				c.irespawn+=1
+			elseif c.irespawn>=respawn and c.icount<2 then
+				spawn_interceptor(c)
+				c.icount+=1
+				if c.icount!=2 then c.irespawn=1 else c.irespawn=0 end
+			end
             c:update()
         end
 
@@ -110,7 +119,8 @@ function _draw()
 	
 	print("l",3,119,lc)
 	print("r",10,119,rc)
-	print(score, 3,3,5)
+	--print(score, 3,3,5)
+	print(count(queue),3,3,5)
 end
 -->8
 --draw functions
@@ -193,6 +203,8 @@ c1={
 	dcc=0.8,
 	target=nil,
     balled=false,
+	irespawn=1,
+	icount=0,
 	draw=function(self)
 		local target_color=4
 		if self.target then
@@ -264,6 +276,7 @@ c1={
 		else
 			self.target=nil	
 		end
+		
 	end,
 }
 
@@ -298,7 +311,7 @@ end
 -->8
 --planes
 planes={}
-function spawn(x,y,d,speed,p,ball)
+function spawn(x,y,d,p,ball)
 	ball=ball or false
     p=p or c1
 	if p.p==0 then
@@ -311,6 +324,7 @@ function spawn(x,y,d,speed,p,ball)
     else
         tcol=col
     end
+	if ball then speed=bspeed else speed=ispeed end
     local p={
 		id=rnd(1000),
 		x=x,
@@ -333,6 +347,9 @@ function spawn(x,y,d,speed,p,ball)
 		delete=function(self)
             if self.ball then
             	self.p.balled=false
+			else
+				self.p.icount-=1
+				self.p.irespawn=1
             end
             del(planes,self)
   		end,
@@ -397,7 +414,7 @@ function spawn(x,y,d,speed,p,ball)
 					end
 					planes_left-=1
 				end
-				del(planes, self)
+				self:delete()
 			end
 			
 			--collision
@@ -435,20 +452,30 @@ function rnd_spawn(col,degrees,speed)
 	local col=col or 5
 	local degrees=degrees or flr(rnd(360))
  local x,y,d=point_on_circle(circr, circx, circy, degrees)
- spawn(x,y,d,speed)
+ spawn(x,y,d)
 end
 
 function spawn_ball(p)
-    local speed = speed or 0.4
     local degrees = 0
     if p.p==0 then
-        degrees = flr(rnd(180)+180)
+        degrees = flr(rnd(180)+90)
     else
-        degrees = flr(rnd(180))
+		degrees = flr(rnd(180)+180+90)
     end
     local x,y,d=point_on_circle(circr, circx, circy, degrees)
-    spawn(x,y,d,speed,p,true)
+    spawn(x,y,d,p,true)
     p.balled=true
+end
+
+function spawn_interceptor(p)
+	local degrees = 0
+    if p.p==0 then
+        degrees = flr(rnd(180)+90)
+    else
+		degrees = flr(rnd(180)+180+90)
+    end
+    local x,y,d=point_on_circle(circr, circx, circy, degrees)
+    spawn(x,y,d,p,false)
 end
 
 function turn(p)
@@ -508,14 +535,14 @@ function spawn_wave(p,color_p)
 end
 
 function pull_from_queue()
-	if seconds%spawn_gap==0 then
+
 		if type(queue[count(queue)]) == "string" then
 			deli(queue, count(queue))
 		else
 			add(planes, deli(queue, count(queue)))
 		end
-		seconds+=0.1
-	end
+
+
 end
 -->8
 
